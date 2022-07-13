@@ -2,6 +2,7 @@ require("dotenv").config;
 const User = require("../models/user");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { rmSync } = require("fs");
 
 // Handle errors
 const handleErrors = (err) => {
@@ -47,7 +48,9 @@ module.exports.signup_post = async (req, res) => {
   const { email, password, user_name, name } = req.body;
   try {
     const user = await User.create({ email, password, user_name, name });
-    const token = createToken(user._id);
+    console.log(typeof user._id.toString());
+    const id = user._id.toString();
+    const token = createToken(id);
     res.cookie("jwt", token, {
       httpOnly: true,
       maxAge: maxAge * 1000,
@@ -66,24 +69,41 @@ module.exports.login_post = async (req, res) => {
 
   try {
     const user = await User.login(email, password);
-    const token = createToken(user._id);
+
+    const id = user._id;
+    const token = createToken(id.toString());
     res.cookie("jwt", token, {
       httpOnly: true,
       maxAge: maxAge * 1000,
       secure: process.env.ENVIRONMENT === "production" ? "true" : "auto",
       sameSite: process.env.ENVIRONMENT === "production" ? "none" : "lax",
     });
-    res.status(201).json({ user: user._id });
+    res.status(201).json({ loggedIn: true, username: user.user_name });
   } catch (err) {
     const errors = handleErrors(err);
     res.status(400).json({ errors });
   }
 };
 
-module.exports.login_get = async (req, res) => {
-  res.json({ message: "working" });
+module.exports.login_get = (req, res) => {
+  const token = req.cookies.jwt;
+  console.log("from get login request:", token);
+  if (token) {
+    jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+      if (err) {
+        res.status(400).json({ loggedIn: false });
+      } else {
+        const user = await User.findById(decoded.id);
+        console.log(user);
+        res.json({ loggedIn: true, username: user.user_name });
+      }
+    });
+  } else {
+    res.json({ loggedIn: false });
+  }
 };
 
 module.exports.logout_get = (req, res) => {
-  res.json({ message: "working" });
+  res.cookie("jwt", "", { maxAge: 1 });
+  res.json({ loggedIn: false });
 };
