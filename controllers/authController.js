@@ -57,7 +57,7 @@ module.exports.signup_post = async (req, res) => {
       secure: process.env.ENVIRONMENT === "production" ? "true" : "auto",
       sameSite: process.env.ENVIRONMENT === "production" ? "none" : "lax",
     });
-    res.status(201).json({ user: user._id });
+    res.status(201).json({ loggedIn: true, username: user.user_name });
   } catch (err) {
     const errors = handleErrors(err);
     res.status(400).json({ errors });
