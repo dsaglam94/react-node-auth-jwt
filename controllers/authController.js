@@ -8,6 +8,15 @@ const handleErrors = (err) => {
   console.log(err.message, err.errors, err.code);
   let errors = { email: "", password: "", username: "" };
 
+  // incorrect email
+  if (err.message === "incorrect email") {
+    errors.email = "This email is not registered";
+  }
+
+  if (err.message === "incorrect password") {
+    errors.password = "This password is incorrect";
+  }
+
   // duplicate email error
   if (err.code === 11000 && err.message.includes("user_name")) {
     errors.username = "This username is already registered";
@@ -39,7 +48,6 @@ module.exports.signup_post = async (req, res) => {
   try {
     const user = await User.create({ email, password, user_name, name });
     const token = createToken(user._id);
-    console.log(token);
     res.cookie("jwt", token, {
       httpOnly: true,
       maxAge: maxAge * 1000,
@@ -55,8 +63,21 @@ module.exports.signup_post = async (req, res) => {
 
 module.exports.login_post = async (req, res) => {
   const { email, password } = req.body;
-  console.log(email, password);
-  res.status(200).send("User login");
+
+  try {
+    const user = await User.login(email, password);
+    const token = createToken(user._id);
+    res.cookie("jwt", token, {
+      httpOnly: true,
+      maxAge: maxAge * 1000,
+      secure: process.env.ENVIRONMENT === "production" ? "true" : "auto",
+      sameSite: process.env.ENVIRONMENT === "production" ? "none" : "lax",
+    });
+    res.status(201).json({ user: user._id });
+  } catch (err) {
+    const errors = handleErrors(err);
+    res.status(400).json({ errors });
+  }
 };
 
 module.exports.login_get = async (req, res) => {
